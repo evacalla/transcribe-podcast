@@ -47,10 +47,31 @@ def discover_files(input_dir: Path) -> list[PodcastFile]:
 
 def transcribe(podcast_file: PodcastFile, whisper_model: str) -> Transcription:
     """Transcribe an MP3 file using a local Whisper model."""
+    import os
+    import ssl
+    import tempfile
+    import imageio_ffmpeg  # bundled ffmpeg binary, no system install needed
     import whisper  # imported here to allow tests to mock easily
 
+    # imageio_ffmpeg bundles ffmpeg but with a versioned name (e.g. ffmpeg-macos-aarch64-v7.1).
+    # Whisper looks for "ffmpeg" specifically, so we create a symlink with that name in a
+    # temporary directory and add it to PATH for the duration of the call.
+    ffmpeg_exe = Path(imageio_ffmpeg.get_ffmpeg_exe())
+    tmp_bin = Path(tempfile.mkdtemp())
+    ffmpeg_link = tmp_bin / "ffmpeg"
+    if not ffmpeg_link.exists():
+        ffmpeg_link.symlink_to(ffmpeg_exe)
+    os.environ["PATH"] = str(tmp_bin) + os.pathsep + os.environ.get("PATH", "")
+
     print(f"      Loading Whisper model '{whisper_model}'...")
-    model = whisper.load_model(whisper_model)
+    # Some corporate networks use SSL inspection proxies with self-signed certs.
+    # Disable verification only for the model download; whisper uses urllib internally.
+    _orig_ctx = ssl._create_default_https_context
+    ssl._create_default_https_context = ssl._create_unverified_context
+    try:
+        model = whisper.load_model(whisper_model)
+    finally:
+        ssl._create_default_https_context = _orig_ctx
     print("      Transcribing audio...")
     result = model.transcribe(str(podcast_file.path))
 

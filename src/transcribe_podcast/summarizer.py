@@ -27,7 +27,7 @@ def write_summary(summary: Summary) -> None:
             file=sys.stderr,
         )
     summary.output_path.write_text(
-        f"# {summary.title}\n\n## Summary\n\n{summary.content}\n",
+        f"# {summary.title}\n\n{summary.content}\n",
         encoding="utf-8",
     )
 
