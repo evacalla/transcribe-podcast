@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from transcribe_podcast.config import AppConfig
-from transcribe_podcast.summarizer import Summary, summarise, write_summary
+from transcribe_podcast.summarizer import Summary, write_summary
 from transcribe_podcast.transcriber import PodcastFile, Transcription, transcribe
 
 
@@ -20,12 +20,11 @@ def process_file(podcast_file: PodcastFile, config: AppConfig) -> ProcessingResu
     """Orchestrate transcription → summarisation → file write for one podcast."""
     try:
         transcription = transcribe(podcast_file, config.whisper_model)
-        content, chunked = summarise(transcription, config)
         summary = Summary(
             title=podcast_file.stem,
-            content=content,
+            content=transcription.text,
             output_path=config.output_dir / (podcast_file.stem + ".md"),
-            chunked=chunked,
+            chunked=False,
         )
         write_summary(summary)
         return ProcessingResult(
