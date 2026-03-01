@@ -1,0 +1,34 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Design / specification documents
+specs/
+
+# Hidden files and directories (dotfiles)
+.*
+!.gitignore
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+venv/
+.Python
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Input / output data (not source code)
+input/
+output/

@@ -1,0 +1,32 @@
+[project]
+name = "transcribe-podcast"
+version = "0.1.0"
+description = "Transcribe and summarise MP3 podcasts locally using Whisper and OpenRouter."
+requires-python = ">=3.11"
+dependencies = [
+    "openai-whisper>=20231117",
+    "langchain>=0.2",
+    "langchain-openai>=0.1",
+    "langchain-text-splitters>=0.2",
+    "python-dotenv>=1.0",
+]
+
+[project.scripts]
+transcribe-podcast = "transcribe_podcast.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
