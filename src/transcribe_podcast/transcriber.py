@@ -45,11 +45,17 @@ def discover_files(input_dir: Path) -> list[PodcastFile]:
     return unique
 
 
-def transcribe(podcast_file: PodcastFile, whisper_model: str, language: str | None = None, fp16: bool | None = None) -> Transcription:
+def transcribe(
+    podcast_file: PodcastFile,
+    whisper_model: str,
+    language: str | None = None,
+    fp16: bool | None = None,
+) -> Transcription:
     """Transcribe an MP3 file using a local Whisper model."""
     import os
     import ssl
     import tempfile
+
     import imageio_ffmpeg  # bundled ffmpeg binary, no system install needed
     import whisper  # imported here to allow tests to mock easily
 

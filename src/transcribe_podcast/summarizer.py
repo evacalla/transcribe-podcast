@@ -52,6 +52,7 @@ def summarise(transcription: Transcription, config: AppConfig) -> tuple[str, boo
 
 def _summarise_short(transcription: Transcription, config: AppConfig) -> str:
     """Single LLM call for episodes under 1 hour."""
+    print(f"      [LLM] Building LLM with model: {config.model}")
     llm = build_llm(config)
     prompt = (
         "You are an expert podcast summariser. "
@@ -59,7 +60,9 @@ def _summarise_short(transcription: Transcription, config: AppConfig) -> str:
         "Capture the main topics, key insights, and conclusions.\n\n"
         f"TRANSCRIPT:\n{transcription.text}"
     )
+    print("      [LLM] Sending request to OpenRouter...")
     response = llm.invoke([HumanMessage(content=prompt)])
+    print("      [LLM] Response received")
     return response.content
 
 
@@ -73,8 +76,11 @@ def _summarise_long(transcription: Transcription, config: AppConfig) -> str:
     chunks = splitter.split_text(transcription.text)
     docs = [Document(page_content=chunk) for chunk in chunks]
 
-    print(f"      Splitting into {len(docs)} chunks for map-reduce...")
+    print(f"      [LLM] Splitting into {len(docs)} chunks for map-reduce...")
+    print(f"      [LLM] Building LLM with model: {config.model}")
     llm = build_llm(config)
     chain = load_summarize_chain(llm, chain_type="map_reduce")
+    print("      [LLM] Starting map-reduce summarization (this may take a while)...")
     result = chain.invoke({"input_documents": docs})
+    print("      [LLM] Map-reduce complete")
     return result["output_text"]

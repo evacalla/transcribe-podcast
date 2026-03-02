@@ -73,6 +73,13 @@ def main() -> None:
 
     files = discover_files(config.input_dir)
 
+    if not silent:
+        print("[INIT] Starting podcast transcription batch")
+        print(f"[CONFIG] Input: {config.input_dir}")
+        print(f"[CONFIG] Output: {config.output_dir}")
+        print(f"[CONFIG] LLM Model: {config.model}")
+        print(f"[CONFIG] Whisper Model: {config.whisper_model}")
+
     if not files:
         _print(f"No .mp3 files found in {config.input_dir}.", silent)
         sys.exit(0)
@@ -124,6 +131,6 @@ def main() -> None:
         }
         print(json.dumps(output, indent=2))
     else:
-        print(f"\nDone: {succeeded} succeeded, {failed} failed.")
+        print(f"\n[DONE] Batch complete: {succeeded} succeeded, {failed} failed.")
 
     sys.exit(0 if failed == 0 else 2)
