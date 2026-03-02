@@ -15,6 +15,8 @@ class AppConfig:
     api_key: str
     model: str
     whisper_model: str
+    language: str | None
+    fp16: bool | None  # None = auto (fp16 on GPU, fp32 on CPU)
     input_dir: Path
     output_dir: Path
     json_output: bool
@@ -57,12 +59,29 @@ def load_config(args) -> AppConfig:
     output_dir = Path(output_dir_str).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # language: CLI flag > env var > None (auto-detect)
+    language = getattr(args, "language", None) or os.getenv("WHISPER_LANGUAGE") or None
+
+    # fp16: CLI flag > env var > None (auto: fp16 on GPU, fp32 on CPU)
+    fp16_arg = getattr(args, "fp16", None)
+    fp16_env = os.getenv("WHISPER_FP16", "").strip().lower()
+    if fp16_arg is not None:
+        fp16: bool | None = fp16_arg
+    elif fp16_env in ("true", "1", "yes"):
+        fp16 = True
+    elif fp16_env in ("false", "0", "no"):
+        fp16 = False
+    else:
+        fp16 = None
+
     json_output = bool(getattr(args, "json", False))
 
     return AppConfig(
         api_key=api_key,
         model=model,
         whisper_model=whisper_model,
+        language=language,
+        fp16=fp16,
         input_dir=input_dir,
         output_dir=output_dir,
         json_output=json_output,

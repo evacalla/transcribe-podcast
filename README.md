@@ -52,9 +52,11 @@ OPENROUTER_MODEL=openai/gpt-4o-mini # requerido — modelo a usar para el resume
 Variables opcionales (también se pueden pasar como flags de CLI):
 
 ```dotenv
-WHISPER_MODEL=base   # tiny | base | small | medium | large
-INPUT_DIR=./input    # carpeta donde están los .mp3
-OUTPUT_DIR=./output  # carpeta donde se escriben los .md
+WHISPER_MODEL=base    # tiny | base | small | medium | large
+INPUT_DIR=./input     # carpeta donde están los .mp3
+OUTPUT_DIR=./output   # carpeta donde se escriben los .md
+WHISPER_LANGUAGE=es   # idioma fijo (ej. es, en) — omitir para detección automática
+WHISPER_FP16=false    # false → fuerza fp32; true → fuerza fp16; omitir → automático
 ```
 
 ## Uso
@@ -69,8 +71,26 @@ transcribe-podcast --input-dir ~/podcasts --output-dir ~/resumenes
 # Modelo Whisper más preciso (más lento)
 transcribe-podcast --whisper-model small
 
+# Forzar fp32 (mayor precisión en algunos dispositivos, especialmente Apple Silicon)
+transcribe-podcast --no-fp16
+
+# Forzar fp16 explícitamente
+transcribe-podcast --fp16
+
+# Idioma fijo (evita el paso de detección automática)
+transcribe-podcast --language es
+
 # Salida JSON (útil para scripts)
 transcribe-podcast --json
+```
+
+### Precisión numérica (`--fp16` / `--no-fp16`)
+
+Por defecto Whisper usa **fp16** en GPU (MPS/CUDA) y **fp32** en CPU. En algunos dispositivos — particularmente Apple Silicon — fp32 produce mejores transcripciones. Usa `--no-fp16` para forzarlo:
+
+```bash
+transcribe-podcast --no-fp16
+# equivalente en .env:  WHISPER_FP16=false
 ```
 
 ### Salida por consola (modo por defecto)

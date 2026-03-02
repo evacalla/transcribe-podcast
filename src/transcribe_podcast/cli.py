@@ -33,6 +33,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Whisper model size: tiny, base, small, medium, large (default: base)",
     )
     parser.add_argument(
+        "--language",
+        dest="language",
+        metavar="LANG",
+        help="Language code for transcription, e.g. 'es', 'en' (default: auto-detect)",
+    )
+    parser.add_argument(
+        "--fp16",
+        dest="fp16",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Use fp16 precision for Whisper. --no-fp16 forces fp32 (default: auto)",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         help="Output results as JSON to stdout",

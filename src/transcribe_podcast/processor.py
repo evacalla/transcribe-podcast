@@ -19,7 +19,7 @@ class ProcessingResult:
 def process_file(podcast_file: PodcastFile, config: AppConfig) -> ProcessingResult:
     """Orchestrate transcription → summarisation → file write for one podcast."""
     try:
-        transcription = transcribe(podcast_file, config.whisper_model)
+        transcription = transcribe(podcast_file, config.whisper_model, config.language, config.fp16)
         summary = Summary(
             title=podcast_file.stem,
             content=transcription.text,
