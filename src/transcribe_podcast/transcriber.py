@@ -45,7 +45,7 @@ def discover_files(input_dir: Path) -> list[PodcastFile]:
     return unique
 
 
-def transcribe(podcast_file: PodcastFile, whisper_model: str) -> Transcription:
+def transcribe(podcast_file: PodcastFile, whisper_model: str, language: str | None = None, fp16: bool | None = None) -> Transcription:
     """Transcribe an MP3 file using a local Whisper model."""
     import os
     import ssl
@@ -63,17 +63,27 @@ def transcribe(podcast_file: PodcastFile, whisper_model: str) -> Transcription:
         ffmpeg_link.symlink_to(ffmpeg_exe)
     os.environ["PATH"] = str(tmp_bin) + os.pathsep + os.environ.get("PATH", "")
 
-    print(f"      Loading Whisper model '{whisper_model}'...")
+    import torch
+
+    if torch.backends.mps.is_available():
+        device = "mps"
+    elif torch.cuda.is_available():
+        device = "cuda"
+    else:
+        device = "cpu"
+
+    print(f"      Loading Whisper model '{whisper_model}' on {device}...")
     # Some corporate networks use SSL inspection proxies with self-signed certs.
     # Disable verification only for the model download; whisper uses urllib internally.
     _orig_ctx = ssl._create_default_https_context
     ssl._create_default_https_context = ssl._create_unverified_context
     try:
-        model = whisper.load_model(whisper_model)
+        model = whisper.load_model(whisper_model, device=device)
     finally:
         ssl._create_default_https_context = _orig_ctx
     print("      Transcribing audio...")
-    result = model.transcribe(str(podcast_file.path))
+    use_fp16 = fp16 if fp16 is not None else (device != "cpu")
+    result = model.transcribe(str(podcast_file.path), fp16=use_fp16, language=language)
 
     text: str = result["text"]
     segments = result.get("segments", [])
