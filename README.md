@@ -59,6 +59,13 @@ WHISPER_LANGUAGE=es   # idioma fijo (ej. es, en) — omitir para detección auto
 WHISPER_FP16=false    # false → fuerza fp32; true → fuerza fp16; omitir → automático
 ```
 
+### Delay entre episodios
+
+Para evitar exceder los rate limits de OpenRouter, la herramienta incluye un **delay automático** entre episodios:
+- **1 segundo por cada minuto de audio** del episodio procesado
+- Ejemplo: un episodio de 45 minutos → espera 45 segundos antes de continuar
+- Esto ocurre después de guardar el resumen, antes de pasar al siguiente archivo
+
 ## Uso
 
 ```bash
@@ -95,18 +102,54 @@ transcribe-podcast --no-fp16
 
 ### Salida por consola (modo por defecto)
 
+La herramienta muestra logs detallados del proceso:
+
 ```
+[INIT] Starting podcast transcription batch
+[CONFIG] Input: /home/user/podcasts/input
+[CONFIG] Output: /home/user/podcasts/output
+[CONFIG] LLM Model: openai/gpt-4o-mini
+[CONFIG] Whisper Model: base
+
 [1/3] Processing: episodio-42.mp3
-      Saved: /ruta/output/episodio-42.md
+      [START] Processing file: episodio-42.mp3
+      [MODEL] Using LLM model: openai/gpt-4o-mini
+      [WHISPER] Using Whisper model: base
+      Loading Whisper model 'base' on mps...
+      Transcribing audio...
+      [DURATION] Episode duration: 45.3 minutes
+      [SUMMARY] Generating summary...
+      [LLM] Building LLM with model: openai/gpt-4o-mini
+      [LLM] Sending request to OpenRouter...
+      [LLM] Response received
+      [SUMMARY] Summary generated (chunked: False)
+      [DONE] Summary saved to: /home/user/podcasts/output/episodio-42.md
+      [DELAY] Waiting 45 seconds (45.3 min)...
 
 [2/3] Processing: entrevista-larga.mp3
-      Long episode detected — splitting into chunks
-      Saved: /ruta/output/entrevista-larga.md
+      [START] Processing file: entrevista-larga.mp3
+      [MODEL] Using LLM model: openai/gpt-4o-mini
+      [WHISPER] Using Whisper model: base
+      Loading Whisper model 'base' on mps...
+      Transcribing audio...
+      [DURATION] Episode duration: 65.2 minutes
+      [SUMMARY] Generating summary...
+      [LLM] Building LLM with model: openai/gpt-4o-mini
+      [LLM] Splitting into 4 chunks for map-reduce...
+      [LLM] Starting map-reduce summarization (this may take a while)...
+      [LLM] Map-reduce complete
+      [SUMMARY] Summary generated (chunked: True)
+      [DONE] Summary saved to: /home/user/podcasts/output/entrevista-larga.md
+      [DELAY] Waiting 65 seconds (65.2 min)...
 
 [3/3] Processing: archivo-roto.mp3
-      ERROR: Could not read audio file
+      [START] Processing file: archivo-roto.mp3
+      [MODEL] Using LLM model: openai/gpt-4o-mini
+      [WHISPER] Using Whisper model: base
+      Loading Whisper model 'base' on mps...
+      [ERROR] Could not read audio file
 
-Done: 2 succeeded, 1 failed.
+[DONE] Batch complete: 2 succeeded, 1 failed.
 ```
 
 ### Salida JSON (`--json`)
@@ -128,7 +171,7 @@ Done: 2 succeeded, 1 failed.
 
 | Código | Significado |
 |--------|-------------|
-| `0` | Todos los archivos procesados correctamente |
+| `0` | Todos los archivos procesados correctamente (o carpeta vacía) |
 | `1` | Error de configuración (credenciales faltantes, carpeta inexistente) |
 | `2` | Fallo parcial — al menos un archivo falló |
 
