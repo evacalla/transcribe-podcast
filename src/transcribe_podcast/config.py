@@ -12,8 +12,6 @@ VALID_WHISPER_MODELS = {"tiny", "base", "small", "medium", "large"}
 
 @dataclass
 class AppConfig:
-    api_key: str
-    model: str
     whisper_model: str
     language: str | None
     fp16: bool | None  # None = auto (fp16 on GPU, fp32 on CPU)
@@ -26,19 +24,9 @@ def load_config(args) -> AppConfig:
     """Load and validate configuration from .env and CLI arguments.
 
     Precedence: CLI flag > environment variable > built-in default.
-    Raises SystemExit(1) on missing required credentials or invalid values.
+    Raises SystemExit(1) on invalid values.
     """
     load_dotenv()
-
-    api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
-    if not api_key:
-        print("ERROR: OPENROUTER_API_KEY is not set. Add it to your .env file.", file=sys.stderr)
-        sys.exit(1)
-
-    model = os.getenv("OPENROUTER_MODEL", "").strip()
-    if not model:
-        print("ERROR: OPENROUTER_MODEL is not set. Add it to your .env file.", file=sys.stderr)
-        sys.exit(1)
 
     # whisper_model: CLI flag > env var > default
     whisper_model = getattr(args, "whisper_model", None) or os.getenv("WHISPER_MODEL", "") or "base"
@@ -77,8 +65,6 @@ def load_config(args) -> AppConfig:
     json_output = bool(getattr(args, "json", False))
 
     return AppConfig(
-        api_key=api_key,
-        model=model,
         whisper_model=whisper_model,
         language=language,
         fp16=fp16,

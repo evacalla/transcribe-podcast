@@ -71,14 +71,14 @@ def transcribe(
 
     import torch
 
-    if torch.backends.mps.is_available():
-        device = "mps"
-    elif torch.cuda.is_available():
+    if torch.cuda.is_available():
         device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
     else:
         device = "cpu"
 
-    print(f"      Loading Whisper model '{whisper_model}' on {device}...")
+    print(f"      Loading Whisper '{whisper_model}' on {device}...")
     # Some corporate networks use SSL inspection proxies with self-signed certs.
     # Disable verification only for the model download; whisper uses urllib internally.
     _orig_ctx = ssl._create_default_https_context
@@ -87,9 +87,18 @@ def transcribe(
         model = whisper.load_model(whisper_model, device=device)
     finally:
         ssl._create_default_https_context = _orig_ctx
+
+    # MPS does not reliably support fp16 for all Whisper ops (produces NaN logits).
+    # Only enable fp16 by default on CUDA; MPS and CPU both use fp32.
+    use_fp16 = fp16 if fp16 is not None else (device == "cuda")
+
     print("      Transcribing audio...")
-    use_fp16 = fp16 if fp16 is not None else (device != "cpu")
-    result = model.transcribe(str(podcast_file.path), fp16=use_fp16, language=language)
+
+    result = model.transcribe(
+        str(podcast_file.path),
+        fp16=use_fp16,
+        language=language,
+    )
 
     text: str = result["text"]
     segments = result.get("segments", [])

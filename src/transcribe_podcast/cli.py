@@ -12,7 +12,7 @@ from transcribe_podcast.transcriber import discover_files
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="transcribe-podcast",
-        description="Transcribe and summarise MP3 podcasts using Whisper and OpenRouter.",
+        description="Transcribe MP3 podcasts locally using Whisper.",
     )
     parser.add_argument(
         "--input-dir",
@@ -77,7 +77,6 @@ def main() -> None:
         print("[INIT] Starting podcast transcription batch")
         print(f"[CONFIG] Input: {config.input_dir}")
         print(f"[CONFIG] Output: {config.output_dir}")
-        print(f"[CONFIG] LLM Model: {config.model}")
         print(f"[CONFIG] Whisper Model: {config.whisper_model}")
 
     if not files:
@@ -95,10 +94,10 @@ def main() -> None:
 
         if result.status == "success":
             assert result.transcription is not None
-            assert result.summary is not None
+            assert result.output_path is not None
             if result.transcription.is_long:
-                _print("      Long episode detected — splitting into chunks", silent)
-            _print(f"      Saved: {result.summary.output_path}", silent)
+                _print("      Long episode detected", silent)
+            _print(f"      Saved: {result.output_path}", silent)
         else:
             _print(f"      ERROR: {result.error_msg}", silent)
 
@@ -116,8 +115,10 @@ def main() -> None:
                     {
                         "file": r.file.path.name,
                         "status": "success",
-                        "output": str(r.summary.output_path),
-                        "chunked": r.summary.chunked,
+                        "output": str(r.output_path),
+                        "duration_min": (
+                            round(r.transcription.duration_s / 60, 1) if r.transcription else 0
+                        ),
                     }
                     if r.status == "success"
                     else {

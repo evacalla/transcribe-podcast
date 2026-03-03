@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from transcribe_podcast.config import AppConfig
-from transcribe_podcast.summarizer import Summary, summarise, write_summary
 from transcribe_podcast.transcriber import PodcastFile, Transcription, transcribe
 
 
@@ -12,45 +12,40 @@ from transcribe_podcast.transcriber import PodcastFile, Transcription, transcrib
 class ProcessingResult:
     file: PodcastFile
     status: str  # "success" | "error"
-    summary: Summary | None = field(default=None)
+    output_path: Path | None = field(default=None)
     transcription: Transcription | None = field(default=None)
     error_msg: str | None = field(default=None)
 
 
-def process_file(podcast_file: PodcastFile, config: AppConfig) -> ProcessingResult:
-    """Orchestrate transcription → summarisation → file write for one podcast."""
-    try:
-        print(f"      [START] Processing file: {podcast_file.path.name}")
-        print(f"      [MODEL] Using LLM model: {config.model}")
-        print(f"      [WHISPER] Using Whisper model: {config.whisper_model}")
+def _write_raw_transcription(transcription: Transcription, output_path: Path) -> None:
+    """Write raw transcription text to a markdown file."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(transcription.text, encoding="utf-8")
 
-        transcription = transcribe(podcast_file, config.whisper_model, config.language, config.fp16)
+
+def process_file(podcast_file: PodcastFile, config: AppConfig) -> ProcessingResult:
+    """Transcribe podcast and save raw text output."""
+    try:
+        t0 = time.perf_counter()
+        transcription = transcribe(
+            podcast_file,
+            config.whisper_model,
+            config.language,
+            config.fp16,
+        )
+        elapsed = time.perf_counter() - t0
+
         duration_min = transcription.duration_s / 60
         print(f"      [DURATION] Episode duration: {duration_min:.1f} minutes")
+        print(f"      [TIME] Processed in {elapsed:.1f}s")
 
-        print("      [SUMMARY] Generating summary...")
-        summary_text, chunked = summarise(transcription, config)
-        print(f"      [SUMMARY] Summary generated (chunked: {chunked})")
-
-        summary = Summary(
-            title=podcast_file.stem,
-            content=summary_text,
-            output_path=config.output_dir / (podcast_file.stem + ".md"),
-            chunked=chunked,
-        )
-        write_summary(summary)
-        print(f"      [DONE] Summary saved to: {summary.output_path}")
-
-        # Delay based on episode duration (1 second per minute of audio)
-        delay_seconds = int(duration_min)
-        if delay_seconds > 0:
-            print(f"      [DELAY] Waiting {delay_seconds} seconds ({duration_min:.1f} min)...")
-            time.sleep(delay_seconds)
+        output_path = config.output_dir / (podcast_file.stem + ".md")
+        _write_raw_transcription(transcription, output_path)
 
         return ProcessingResult(
             file=podcast_file,
             status="success",
-            summary=summary,
+            output_path=output_path,
             transcription=transcription,
         )
     except Exception as exc:
