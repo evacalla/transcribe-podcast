@@ -1,34 +1,29 @@
 # transcribe-podcast
 
-Herramienta de línea de comandos que transcribe archivos de audio de podcasts (`.mp3`) de forma local usando **Whisper** y genera un resumen escrito usando un modelo de lenguaje a través de **OpenRouter**.
+Herramienta de línea de comandos que transcribe archivos de audio de podcasts (`.mp3`) de forma local usando **Whisper**.
+
+> **Nota:** La herramienta ahora genera transcripciones raw en texto plano. El módulo de resumen (`summarizer.py`) sigue disponible para uso standalone con OpenRouter.
 
 ## Cómo funciona
 
 ```
-.mp3  →  [Whisper local]  →  texto completo  →  [LLM via OpenRouter]  →  resumen .md
+.mp3  →  [Whisper local]  →  transcripción .md
 ```
 
-1. Lee las credenciales de un archivo `.env`
+1. Lee la configuración de un archivo `.env` (opcional)
 2. Escanea una carpeta de entrada en busca de archivos `.mp3`
 3. Transcribe cada archivo **localmente** con `openai-whisper` (sin enviar audio a ninguna API)
-4. Genera un resumen usando el modelo configurado en OpenRouter
-5. Guarda el resumen en un archivo `.md` con el mismo nombre que el `.mp3`
+4. Guarda la transcripción en un archivo `.md` con el mismo nombre que el `.mp3`
 
 ### Episodios largos (más de 1 hora)
 
-Cuando la duración supera 1 hora, el texto de la transcripción puede exceder el límite de contexto del modelo. En ese caso el proceso usa **LangChain map-reduce**:
-
-```
-transcripción  →  [divide en chunks]  →  resumen parcial x N  →  [fusiona]  →  resumen final
-```
-
-Esto ocurre de forma automática, sin configuración adicional.
+La herramienta detecta automáticamente episodios de más de 1 hora. Esta información está disponible en el output para procesamiento posterior.
 
 ## Requisitos
 
 - Python 3.11+
-- Cuenta en [OpenRouter](https://openrouter.ai) con una API key
 - Archivos `.mp3` para procesar
+- (Opcional) Cuenta en [OpenRouter](https://openrouter.ai) si quieres usar el módulo de resumen standalone
 
 ## Instalación
 
@@ -45,35 +40,27 @@ cp .env.example .env
 Editar `.env`:
 
 ```dotenv
-OPENROUTER_API_KEY=sk-or-...        # requerido
-OPENROUTER_MODEL=openai/gpt-4o-mini # requerido — modelo a usar para el resumen
-```
-
-Variables opcionales (también se pueden pasar como flags de CLI):
-
-```dotenv
 WHISPER_MODEL=base    # tiny | base | small | medium | large
 INPUT_DIR=./input     # carpeta donde están los .mp3
-OUTPUT_DIR=./output   # carpeta donde se escriben los .md
+OUTPUT_DIR=./output   # carpeta donde se escriben las transcripciones .md
 WHISPER_LANGUAGE=es   # idioma fijo (ej. es, en) — omitir para detección automática
 WHISPER_FP16=false    # false → fuerza fp32; true → fuerza fp16; omitir → automático
 ```
 
-### Delay entre episodios
-
-Para evitar exceder los rate limits de OpenRouter, la herramienta incluye un **delay automático** entre episodios:
-- **1 segundo por cada minuto de audio** del episodio procesado
-- Ejemplo: un episodio de 45 minutos → espera 45 segundos antes de continuar
-- Esto ocurre después de guardar el resumen, antes de pasar al siguiente archivo
+> **Para uso del módulo de resumen standalone:**
+> ```dotenv
+> OPENROUTER_API_KEY=sk-or-...        # requerido
+> OPENROUTER_MODEL=openai/gpt-4o-mini # requerido
+> ```
 
 ## Uso
 
 ```bash
-# Procesar todos los .mp3 en ./input → resúmenes en ./output
+# Transcribir todos los .mp3 en ./input → archivos .md en ./output
 transcribe-podcast
 
 # Carpetas personalizadas
-transcribe-podcast --input-dir ~/podcasts --output-dir ~/resumenes
+transcribe-podcast --input-dir ~/podcasts --output-dir ~/transcripciones
 
 # Modelo Whisper más preciso (más lento)
 transcribe-podcast --whisper-model small
@@ -93,10 +80,11 @@ transcribe-podcast --json
 
 ### Precisión numérica (`--fp16` / `--no-fp16`)
 
-Por defecto Whisper usa **fp16** en GPU (MPS/CUDA) y **fp32** en CPU. En algunos dispositivos — particularmente Apple Silicon — fp32 produce mejores transcripciones. Usa `--no-fp16` para forzarlo:
+Por defecto la herramienta usa **fp16 solo en CUDA** y **fp32 en MPS y CPU**. Esto evita problemas de NaN que pueden ocurrir con fp16 en Apple Silicon. Para forzar un modo específico:
 
 ```bash
-transcribe-podcast --no-fp16
+transcribe-podcast --no-fp16   # fuerza fp32
+transcribe-podcast --fp16      # fuerza fp16 (puede causar problemas en MPS)
 # equivalente en .env:  WHISPER_FP16=false
 ```
 
@@ -108,46 +96,26 @@ La herramienta muestra logs detallados del proceso:
 [INIT] Starting podcast transcription batch
 [CONFIG] Input: /home/user/podcasts/input
 [CONFIG] Output: /home/user/podcasts/output
-[CONFIG] LLM Model: openai/gpt-4o-mini
 [CONFIG] Whisper Model: base
 
 [1/3] Processing: episodio-42.mp3
-      [START] Processing file: episodio-42.mp3
-      [MODEL] Using LLM model: openai/gpt-4o-mini
-      [WHISPER] Using Whisper model: base
-      Loading Whisper model 'base' on mps...
+      Loading Whisper 'base' on mps...
       Transcribing audio...
       [DURATION] Episode duration: 45.3 minutes
-      [SUMMARY] Generating summary...
-      [LLM] Building LLM with model: openai/gpt-4o-mini
-      [LLM] Sending request to OpenRouter...
-      [LLM] Response received
-      [SUMMARY] Summary generated (chunked: False)
-      [DONE] Summary saved to: /home/user/podcasts/output/episodio-42.md
-      [DELAY] Waiting 45 seconds (45.3 min)...
+      [TIME] Processed in 123.5s
+      Saved: /home/user/podcasts/output/episodio-42.md
 
 [2/3] Processing: entrevista-larga.mp3
-      [START] Processing file: entrevista-larga.mp3
-      [MODEL] Using LLM model: openai/gpt-4o-mini
-      [WHISPER] Using Whisper model: base
-      Loading Whisper model 'base' on mps...
+      Loading Whisper 'base' on mps...
       Transcribing audio...
       [DURATION] Episode duration: 65.2 minutes
-      [SUMMARY] Generating summary...
-      [LLM] Building LLM with model: openai/gpt-4o-mini
-      [LLM] Splitting into 4 chunks for map-reduce...
-      [LLM] Starting map-reduce summarization (this may take a while)...
-      [LLM] Map-reduce complete
-      [SUMMARY] Summary generated (chunked: True)
-      [DONE] Summary saved to: /home/user/podcasts/output/entrevista-larga.md
-      [DELAY] Waiting 65 seconds (65.2 min)...
+      Long episode detected
+      [TIME] Processed in 189.2s
+      Saved: /home/user/podcasts/output/entrevista-larga.md
 
 [3/3] Processing: archivo-roto.mp3
-      [START] Processing file: archivo-roto.mp3
-      [MODEL] Using LLM model: openai/gpt-4o-mini
-      [WHISPER] Using Whisper model: base
-      Loading Whisper model 'base' on mps...
-      [ERROR] Could not read audio file
+      Loading Whisper 'base' on mps...
+      ERROR: Could not read audio file
 
 [DONE] Batch complete: 2 succeeded, 1 failed.
 ```
@@ -160,8 +128,8 @@ La herramienta muestra logs detallados del proceso:
   "succeeded": 2,
   "failed": 1,
   "results": [
-    { "file": "episodio-42.mp3", "status": "success", "output": "output/episodio-42.md", "chunked": false },
-    { "file": "entrevista-larga.mp3", "status": "success", "output": "output/entrevista-larga.md", "chunked": true },
+    { "file": "episodio-42.mp3", "status": "success", "output": "output/episodio-42.md", "duration_min": 45.3 },
+    { "file": "entrevista-larga.mp3", "status": "success", "output": "output/entrevista-larga.md", "duration_min": 65.2 },
     { "file": "archivo-roto.mp3", "status": "error", "error": "Could not read audio file" }
   ]
 }
@@ -184,13 +152,13 @@ transcribe-podcast/
 │       ├── cli.py          # Entry point CLI (argparse, bucle batch, output)
 │       ├── config.py       # Carga .env + args, valida, devuelve AppConfig
 │       ├── transcriber.py  # Integración openai-whisper, detección de duración
-│       ├── summarizer.py   # Resumen via OpenRouter (single-pass o map-reduce)
+│       ├── summarizer.py   # (Opcional) Resumen via OpenRouter standalone
 │       └── processor.py    # Orquestación por archivo con manejo de errores
 ├── tests/
 │   ├── unit/
 │   └── integration/
 ├── input/                  # Poner aquí los archivos .mp3 (gitignored)
-├── output/                 # Los resúmenes .md se escriben aquí (gitignored)
+├── output/                 # Las transcripciones .md se escriben aquí (gitignored)
 ├── .env.example            # Plantilla de variables de entorno
 └── pyproject.toml          # Dependencias y configuración del proyecto
 ```
@@ -200,9 +168,7 @@ transcribe-podcast/
 | Paquete | Uso |
 |---------|-----|
 | `openai-whisper` | Transcripción local de audio (sin API externa) |
-| `langchain-openai` | Cliente LLM compatible con OpenRouter |
-| `langchain-text-splitters` | División de texto para episodios largos |
-| `langchain` | Pipeline map-reduce de resumen |
+| `openai` | Cliente LLM para el módulo de resumen standalone |
 | `python-dotenv` | Carga de variables de entorno desde `.env` |
 
 ## Modelos Whisper disponibles
@@ -227,3 +193,30 @@ ruff format .
 # Tests
 pytest
 ```
+
+---
+
+## Uso del módulo de resumen (standalone)
+
+El módulo `summarizer.py` puede usarse independientemente para generar resúmenes de transcripciones ya existentes:
+
+```python
+from transcribe_podcast.summarizer import summarise
+from transcribe_podcast.transcriber import Transcription
+from transcribe_podcast.config import AppConfig
+
+# Cargar transcripción
+transcription = Transcription(text="...", duration_s=3600, is_long=True)
+
+# Configurar (requiere OPENROUTER_API_KEY y OPENROUTER_MODEL en .env)
+config = AppConfig(
+    api_key="sk-or-...",
+    model="openai/gpt-4o-mini",
+    # ... otros campos
+)
+
+# Generar resumen
+summary_text, was_chunked = summarise(transcription, config)
+```
+
+Para episodios largos (>1h), el resumen usa map-reduce con división automática de texto.
