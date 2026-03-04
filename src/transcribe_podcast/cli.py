@@ -87,6 +87,12 @@ def main() -> None:
     results: list[ProcessingResult] = []
 
     for i, podcast_file in enumerate(files, start=1):
+        output_path = config.output_dir / (podcast_file.stem + ".md")
+
+        if output_path.exists():
+            _print(f"[{i}/{total}] Skipped (already exists): {podcast_file.path.name}", silent)
+            continue
+
         _print(f"[{i}/{total}] Processing: {podcast_file.path.name}", silent)
 
         result = process_file(podcast_file, config)
