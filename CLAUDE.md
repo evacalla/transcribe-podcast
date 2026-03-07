@@ -4,7 +4,7 @@
 
 Herramienta CLI en Python que transcribe podcasts `.mp3` localmente con `openai-whisper`
 y genera resúmenes en Markdown usando un LLM a través de OpenRouter.
-Episodios de más de 1 hora usan LangChain map-reduce automáticamente.
+Episodios de más de 1 hora usan map-reduce con el cliente OpenAI automáticamente.
 
 ## Comandos esenciales
 
@@ -31,9 +31,9 @@ pytest --cov=transcribe_podcast
 
 ```
 cli.py → processor.py → transcriber.py   (openai-whisper, local)
-                      ↘ summarizer.py    (LangChain → OpenRouter)
-                           ├── corto (<1h): ChatOpenAI single call
-                           └── largo (≥1h): RecursiveCharacterTextSplitter + map_reduce chain
+                      ↘ summarizer.py    (OpenAI client → OpenRouter)
+                            ├── corto (<1h): single LLM call
+                            └── largo (≥1h): map-reduce con múltiples calls
 ```
 
 ## Archivos clave
@@ -43,7 +43,7 @@ cli.py → processor.py → transcriber.py   (openai-whisper, local)
 | `src/transcribe_podcast/cli.py` | Entry point `main()`, argparse, bucle batch, output human/JSON |
 | `src/transcribe_podcast/config.py` | `AppConfig` dataclass, `load_config()` — carga `.env` y args CLI |
 | `src/transcribe_podcast/transcriber.py` | `PodcastFile`, `Transcription`, `discover_files()`, `transcribe()` |
-| `src/transcribe_podcast/summarizer.py` | `Summary`, `write_summary()`, `build_llm()`, `summarise()`, `_summarise_long()` |
+| `src/transcribe_podcast/summarizer.py` | `Summary`, `write_summary()`, `_build_client()`, `summarise()`, `_summarise_long()` |
 | `src/transcribe_podcast/processor.py` | `ProcessingResult`, `process_file()` — orquesta y captura errores |
 
 ## Estructura de carpetas
@@ -74,7 +74,7 @@ OUTPUT_DIR=./output                 # opcional
 - Python 3.11+, `from __future__ import annotations` en todos los módulos
 - `ruff` — line-length 100, target py311, reglas E/F/W/I
 - Dataclasses para todas las entidades de dominio (no dicts sueltos)
-- Imports de whisper y langchain chains dentro de las funciones que los usan (lazy import)
+- Imports de whisper y openai dentro de las funciones que los usan (lazy import)
 - Errores de configuración → `sys.exit(1)` con mensaje descriptivo en stderr
 - Errores en archivos individuales → capturados en `ProcessingResult`, no propagan
 
@@ -103,17 +103,15 @@ output_path = config.output_dir / (podcast_file.stem + ".md")
 
 ```
 openai-whisper>=20231117   # transcripción local
-langchain>=0.2             # chains de resumen
-langchain-openai>=0.1      # ChatOpenAI → OpenRouter
-langchain-text-splitters>=0.2  # RecursiveCharacterTextSplitter
+openai>=1.0                # cliente OpenAI para LLM
 python-dotenv>=1.0         # carga .env
+imageio-ffmpeg>=0.4        # ffmpeg bundle
 ```
 
 ## Configuración OpenRouter
 
 ```python
-ChatOpenAI(
-    model=config.model,
+OpenAI(
     api_key=config.api_key,
     base_url="https://openrouter.ai/api/v1",
 )

@@ -55,6 +55,7 @@ def transcribe(
     import os
     import ssl
     import tempfile
+    from shutil import rmtree
 
     import imageio_ffmpeg  # bundled ffmpeg binary, no system install needed
     import whisper  # imported here to allow tests to mock easily
@@ -94,14 +95,21 @@ def transcribe(
 
     print("      Transcribing audio...")
 
-    result = model.transcribe(
-        str(podcast_file.path),
-        fp16=use_fp16,
-        language=language,
-    )
+    try:
+        result = model.transcribe(
+            str(podcast_file.path),
+            fp16=use_fp16,
+            language=language,
+        )
 
-    text: str = result["text"]
-    segments = result.get("segments", [])
-    duration_s: float = segments[-1]["end"] if segments else 0.0
+        text: str = result["text"]
+        segments = result.get("segments", [])
+        duration_s: float = segments[-1]["end"] if segments else 0.0
 
-    return Transcription(source=podcast_file, text=text, duration_s=duration_s)
+        return Transcription(source=podcast_file, text=text, duration_s=duration_s)
+    finally:
+        # Cleanup temporary directory with ffmpeg symlink
+        try:
+            rmtree(tmp_bin)
+        except Exception:
+            pass  # Best effort cleanup

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from transcribe_podcast.config import AppConfig
+from transcribe_podcast.summarizer import Summary, summarise, write_summary
 from transcribe_podcast.transcriber import PodcastFile, Transcription, transcribe
 
 
@@ -17,14 +18,8 @@ class ProcessingResult:
     error_msg: str | None = field(default=None)
 
 
-def _write_raw_transcription(transcription: Transcription, output_path: Path) -> None:
-    """Write raw transcription text to a markdown file."""
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(transcription.text, encoding="utf-8")
-
-
 def process_file(podcast_file: PodcastFile, config: AppConfig) -> ProcessingResult:
-    """Transcribe podcast and save raw text output."""
+    """Transcribe podcast, generate summary, and save to output."""
     try:
         t0 = time.perf_counter()
         transcription = transcribe(
@@ -37,10 +32,21 @@ def process_file(podcast_file: PodcastFile, config: AppConfig) -> ProcessingResu
 
         duration_min = transcription.duration_s / 60
         print(f"      [DURATION] Episode duration: {duration_min:.1f} minutes")
-        print(f"      [TIME] Processed in {elapsed:.1f}s")
+        print(f"      [TIME] Transcribed in {elapsed:.1f}s")
+
+        # Generate summary
+        summary_content, chunked = summarise(transcription, config)
+        if chunked:
+            print("      Long episode detected, used chunked summarisation")
 
         output_path = config.output_dir / (podcast_file.stem + ".md")
-        _write_raw_transcription(transcription, output_path)
+        summary = Summary(
+            title=podcast_file.stem,
+            content=summary_content,
+            output_path=output_path,
+            chunked=chunked,
+        )
+        write_summary(summary)
 
         return ProcessingResult(
             file=podcast_file,
