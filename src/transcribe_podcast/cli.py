@@ -50,6 +50,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Output results as JSON to stdout",
     )
+    parser.add_argument(
+        "--no-summary",
+        dest="no_summary",
+        action="store_true",
+        help="Skip LLM summarization, output only transcription",
+    )
     return parser
 
 

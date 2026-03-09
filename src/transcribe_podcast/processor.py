@@ -19,7 +19,7 @@ class ProcessingResult:
 
 
 def process_file(podcast_file: PodcastFile, config: AppConfig) -> ProcessingResult:
-    """Transcribe podcast, generate summary, and save to output."""
+    """Transcribe podcast, generate summary (optional), and save to output."""
     try:
         t0 = time.perf_counter()
         transcription = transcribe(
@@ -34,19 +34,26 @@ def process_file(podcast_file: PodcastFile, config: AppConfig) -> ProcessingResu
         print(f"      [DURATION] Episode duration: {duration_min:.1f} minutes")
         print(f"      [TIME] Transcribed in {elapsed:.1f}s")
 
-        # Generate summary
-        summary_content, chunked = summarise(transcription, config)
-        if chunked:
-            print("      Long episode detected, used chunked summarisation")
-
         output_path = config.output_dir / (podcast_file.stem + ".md")
-        summary = Summary(
-            title=podcast_file.stem,
-            content=summary_content,
-            output_path=output_path,
-            chunked=chunked,
-        )
-        write_summary(summary)
+
+        if config.no_summary:
+            # Skip LLM summarization, write transcription only
+            content = f"# {podcast_file.stem}\n\n{transcription.text}"
+            output_path.write_text(content, encoding="utf-8")
+            chunked = False
+        else:
+            # Generate summary
+            summary_content, chunked = summarise(transcription, config)
+            if chunked:
+                print("      Long episode detected, used chunked summarisation")
+
+            summary = Summary(
+                title=podcast_file.stem,
+                content=summary_content,
+                output_path=output_path,
+                chunked=chunked,
+            )
+            write_summary(summary)
 
         return ProcessingResult(
             file=podcast_file,

@@ -20,6 +20,7 @@ class AppConfig:
     json_output: bool
     api_key: str
     model: str
+    no_summary: bool
 
 
 def load_config(args) -> AppConfig:
@@ -66,15 +67,18 @@ def load_config(args) -> AppConfig:
 
     json_output = bool(getattr(args, "json", False))
 
-    api_key = getattr(args, "api_key", None) or os.getenv("OPENROUTER_API_KEY", "")
-    if not api_key:
-        print("ERROR: OPENROUTER_API_KEY is required.", file=sys.stderr)
-        sys.exit(1)
+    no_summary = bool(getattr(args, "no_summary", False))
 
+    api_key = getattr(args, "api_key", None) or os.getenv("OPENROUTER_API_KEY", "")
     model = getattr(args, "model", None) or os.getenv("OPENROUTER_MODEL", "")
-    if not model:
-        print("ERROR: OPENROUTER_MODEL is required.", file=sys.stderr)
-        sys.exit(1)
+
+    if not no_summary:
+        if not api_key:
+            print("ERROR: OPENROUTER_API_KEY is required (or use --no-summary).", file=sys.stderr)
+            sys.exit(1)
+        if not model:
+            print("ERROR: OPENROUTER_MODEL is required (or use --no-summary).", file=sys.stderr)
+            sys.exit(1)
 
     return AppConfig(
         whisper_model=whisper_model,
@@ -85,4 +89,5 @@ def load_config(args) -> AppConfig:
         json_output=json_output,
         api_key=api_key,
         model=model,
+        no_summary=no_summary,
     )
